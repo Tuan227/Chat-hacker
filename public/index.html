@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Chia sẻ tài liệu</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
+    h1 { text-align: center; }
+    button { cursor: pointer; }
+    input, textarea, select {
+      width: 100%; padding: 6px; margin: 6px 0; border: 1px solid #ccc; border-radius: 4px;
+    }
+    .link-btn, .create-btn {
+      background: red; color: white; padding: 8px 16px; border: none; border-radius: 4px;
+    }
+    .link-btn:active, .create-btn:active {
+      background: #00ff00;
+    }
+    .doc-item {
+      background: white; border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-top: 15px;
+      position: relative;
+    }
+    .preview { max-width: 150px; max-height: 150px; display: block; margin-top: 10px; }
+    .delete-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: red; color: white; border: none; padding: 4px 8px; border-radius: 4px;
+    }
+    footer { text-align: center; margin-top: 40px; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>📘 Chia sẻ Tài liệu</h1>
+  <button id="loginBtn">Đăng nhập bằng Google</button>
+  <div id="userPanel" style="display:none;">
+    Xin chào, <span id="userName"></span>! <button id="logoutBtn" class="create-btn">Đăng xuất</button>
+  </div>
+
+  <div id="createSection" style="display:none;">
+    <button id="addBtn" class="create-btn">➕ Thêm tài liệu</button>
+    <div id="docsContainer"></div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <input id="searchInput" placeholder="Tìm bài viết (bỏ qua hoa/thường)">
+    <button id="nextSearchBtn" class="create-btn">Tìm tiếp</button>
+  </div>
+
+  <footer><del>©2025 | Khoan VN</del></footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, orderBy, where, getDocs, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDJtJvPdg9owkQhu99U82r9cE0YaGmcLbo",
+      authDomain: "chat-hacker-82e55.firebaseapp.com",
+      projectId: "chat-hacker-82e55",
+      storageBucket: "chat-hacker-82e55.appspot.com",
+      messagingSenderId: "918654199628",
+      appId: "1:918654199628:web:8855d7d4c4301da8a191e9",
+      measurementId: "G-6X2W1618S9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+    const provider = new GoogleAuthProvider();
+    let todayCount = 0;
+
+    document.getElementById('loginBtn').onclick = () => signInWithPopup(auth, provider);
+    document.getElementById('logoutBtn').onclick = () => signOut(auth);
+
+    onAuthStateChanged(auth, async user => {
+      if (user) {
+        document.getElementById('loginBtn').style.display = 'none';
+        document.getElementById('userPanel').style.display = 'block';
+        document.getElementById('userName').textContent = user.displayName;
+        document.getElementById('createSection').style.display = 'block';
+        await updateTodayCount(user.uid);
+        loadDocs();
+      } else {
+        document.getElementById('loginBtn').style.display = 'block';
+        document.getElementById('userPanel').style.display = 'none';
+        document.getElementById('createSection').style.display = 'none';
+      }
+    });
+
+    async function updateTodayCount(uid) {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const q = query(collection(db, 'docs'), where('authorUid', '==', uid), where('timestamp', '>=', start));
+      const snap = await getDocs(q);
+      todayCount = snap.size;
+    }
+
+    document.getElementById('addBtn').onclick = () => {
+      if (todayCount >= 10) {
+        alert('Bạn đã đạt giới hạn 10 bài viết trong ngày!');
+        return;
+      }
+      createUploadForm();
+    };
+
+    function createUploadForm() {
+      const div = document.createElement('div');
+      div.className = 'doc-item';
+
+      const imgInput = document.createElement('input');
+      imgInput.type = 'file'; imgInput.accept = 'image/*';
+      const preview = document.createElement('img');
+      preview.className = 'preview';
+
+      imgInput.onchange = () => {
+        const f = imgInput.files[0];
+        uploadBytes(sRef(storage, 'images/' + Date.now() + '_' + f.name), f)
+          .then(r => getDownloadURL(r.ref))
+          .then(u => preview.src = u);
+      };
+
+      const introInput = document.createElement('textarea');
+      introInput.placeholder = 'Giới thiệu bài viết';
+
+      const noteInput = document.createElement('textarea');
+      noteInput.placeholder = 'Ghi chú / mô tả bất kỳ';
+
+      const linkText = document.createElement('input');
+      linkText.placeholder = 'Chữ trên nút';
+
+      const linkUrl = document.createElement('input');
+      linkUrl.placeholder = 'URL liên kết';
+
+      const authorInput = document.createElement('input');
+      authorInput.placeholder = 'Tên người đăng';
+      authorInput.maxLength = 30;
+
+      const expireInput = document.createElement('input');
+      expireInput.placeholder = 'Hạn sử dụng (tùy chọn)';
+      expireInput.type = 'date';
+
+      const privacySel = document.createElement('select');
+      privacySel.innerHTML = '<option value="public">Công khai</option><option value="private">Riêng tư</option>';
+
+      const postBtn = document.createElement('button');
+      postBtn.textContent = 'Tạo bài viết';
+      postBtn.className = 'create-btn';
+
+      postBtn.onclick = async () => {
+        const cur = auth.currentUser;
+        const data = {
+          imgUrl: preview.src,
+          intro: introInput.value,
+          note: noteInput.value,
+          linkText: linkText.value,
+          linkUrl: linkUrl.value,
+          authorName: authorInput.value,
+          authorUid: cur.uid,
+          private: privacySel.value === 'private',
+          timestamp: serverTimestamp(),
+          title_lower: linkText.value.toLowerCase()
+        };
+        if (expireInput.value) data.expireDate = expireInput.value;
+        await addDoc(collection(db, 'docs'), data);
+        todayCount++;
+        loadDocs();
+      };
+
+      div.append(imgInput, preview, introInput, noteInput, linkText, linkUrl, authorInput, expireInput, privacySel, postBtn);
+      document.getElementById('docsContainer').append(div);
+    }
+
+    async function loadDocs(searchTerm = '') {
+      let q = query(collection(db, 'docs'), orderBy('timestamp', 'desc'));
+      if (searchTerm) {
+        q = query(collection(db, 'docs'),
+                  where('title_lower', '>=', searchTerm),
+                  where('title_lower', '<', searchTerm + '\uf8ff'),
+                  orderBy('title_lower'));
+      }
+      const snaps = await getDocs(q);
+      const cont = document.getElementById('docsContainer');
+      cont.innerHTML = '';
+      snaps.forEach(snap => {
+        const d = snap.data();
+        const uid = auth.currentUser?.uid;
+        if (!d.private || d.authorUid === uid) {
+          const e = document.createElement('div');
+          e.className = 'doc-item';
+          e.id = snap.id;
+
+          if (d.imgUrl) {
+            const im = document.createElement('img');
+            im.src = d.imgUrl;
+            im.className = 'preview';
+            e.append(im);
+          }
+          if (d.intro) e.append(document.createElement('p')).textContent = d.intro;
+          if (d.note) e.append(document.createElement('p')).textContent = d.note;
+
+          const b = document.createElement('button');
+          b.textContent = d.linkText;
+          b.className = 'link-btn';
+          b.onclick = () => window.open(d.linkUrl, '_blank');
+          e.append(b);
+
+          const meta = document.createElement('div');
+          meta.textContent = `👤 ${d.authorName} | 🗓️ ${new Date(d.timestamp?.toDate()).toLocaleDateString()} ${d.expireDate ? '| ⌛ ' + d.expireDate : ''}`;
+          e.append(meta);
+
+          if (uid && d.authorUid === uid) {
+            const del = document.createElement('button');
+            del.textContent = 'Xóa';
+            del.className = 'delete-btn';
+            del.onclick = () => {
+              if (confirm('Bạn có chắc muốn xóa tài liệu này?')) {
+                deleteDoc(doc(db, 'docs', snap.id)).then(() => loadDocs(searchTerm));
+              }
+            };
+            e.append(del);
+          }
+
+          cont.append(e);
+        }
+      });
+    }
+
+    document.getElementById('nextSearchBtn').onclick = () => {
+      const term = document.getElementById('searchInput').value.trim().toLowerCase();
+      if (term) loadDocs(term);
+    };
+  </script>
+</body>
+  </html>
