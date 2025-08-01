@@ -35,9 +35,8 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
     import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
 
     const firebaseConfig = {
@@ -49,10 +48,11 @@
       appId: "1:918654199628:web:8855d7d4c4301da8a191e9",
       measurementId: "G-6X2W1618S9"
     };
+
     const app = initializeApp(firebaseConfig);
-    getAnalytics(app);
     const auth = getAuth(app), db = getFirestore(app), storage = getStorage(app);
-    const provider = new GoogleAuthProvider(); let todayCount = 0;
+    const provider = new GoogleAuthProvider();
+    let todayCount = 0;
 
     document.getElementById('loginBtn').onclick = async () => {
       try {
@@ -93,12 +93,13 @@
       const div = document.createElement('div'); div.className = 'doc-item';
       const imgInp = document.createElement('input'); imgInp.type = 'file'; imgInp.accept = 'image/*';
       const preview = document.createElement('img'); preview.className = 'preview'; let imgUrl = '';
+
       imgInp.onchange = () => {
         const f = imgInp.files[0]; if (!f) return;
         uploadBytes(sRef(storage,'images/'+Date.now()+'_'+f.name), f)
           .then(r => getDownloadURL(r.ref))
           .then(u => { imgUrl = u; preview.src = u; })
-          .catch(e => alert('Upload ảnh lỗi: '+e.message));
+          .catch(e => alert('Upload ảnh lỗi: ' + e.message));
       };
 
       const title = document.createElement('input'); title.placeholder = 'Giới thiệu (bắt buộc, max 50)'; title.maxLength = 50;
@@ -113,20 +114,37 @@
       const privacy = document.createElement('select'); privacy.innerHTML = `<option value="public">Công khai</option><option value="private">Riêng tư</option>`;
 
       const btn = document.createElement('button'); btn.textContent = 'Tạo tài liệu'; btn.className = 'link-btn';
+
       btn.onclick = async () => {
-        if (!imgUrl || title.value.trim()==='' || urlInp.value.trim()==='' || btnText.value.trim()==='' || author.value.trim()==='') {
-          alert('Vui lòng điền đủ thông tin bắt buộc.');
+        const errors = [];
+        if (!imgUrl) errors.push("Bạn chưa chọn ảnh.");
+        if (!title.value.trim()) errors.push("Bạn chưa nhập giới thiệu.");
+        if (!urlInp.value.trim()) errors.push("Bạn chưa nhập liên kết.");
+        if (!/^https?:\/\/.+/.test(urlInp.value.trim())) errors.push("Link không hợp lệ. Phải bắt đầu bằng http:// hoặc https://");
+        if (!btnText.value.trim()) errors.push("Bạn chưa nhập chữ nút.");
+        if (btnText.value.trim().length > 30) errors.push("Chữ nút tối đa 30 ký tự.");
+        if (!author.value.trim()) errors.push("Bạn chưa nhập tên người đăng.");
+
+        if (errors.length > 0) {
+          alert("⚠️ Lỗi:\n" + errors.join("\n"));
           return;
         }
+
         const u = auth.currentUser;
         const data = {
-          imgUrl, intro: title.value.trim(), customNote: note.value.trim(),
-          linkText: btnText.value.trim(), linkUrl: urlInp.value.trim(),
-          authorName: author.value.trim(), authorUid: u.uid,
-          private: privacy.value==='private',
-          timestamp: serverTimestamp(), createdDate: created.value
+          imgUrl,
+          intro: title.value.trim(),
+          customNote: note.value.trim(),
+          linkText: btnText.value.trim(),
+          linkUrl: urlInp.value.trim(),
+          authorName: author.value.trim(),
+          authorUid: u.uid,
+          private: privacy.value === 'private',
+          timestamp: serverTimestamp(),
+          createdDate: created.value
         };
         if (expire.value) data.expireDate = expire.value;
+
         await addDoc(collection(db,'docs'), data);
         todayCount++; loadDocs();
       };
