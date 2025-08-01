@@ -4,109 +4,162 @@
   <meta charset="UTF-8" />
   <title>Chia sẻ Tài liệu</title>
   <style>
-    html, body {
-      scroll-behavior: smooth;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-      background: #f7f7f7;
-    }
-    h1 {
-      text-align: center;
-      margin: 20px 0;
-    }
-    input, textarea, select {
-      width: 100%;
-      margin: 5px 0;
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
-    .link-btn {
-      background: red;
-      color: #fff;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      margin: 5px 0;
-      cursor: pointer;
-      font-size: 15px;
-    }
-    .link-btn:active {
-      background: #00ff00;
-    }
-    .doc-item {
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 15px;
-      margin: 15px 20px;
-      position: relative;
-    }
-    .preview {
-      max-width: 150px;
-      max-height: 150px;
-      margin: 10px 0;
-      display: block;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    .delete-btn {
-      position: absolute; top: 10px; right: 10px;
-      background: red; color: #fff;
-      border: none; padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    footer {
-      text-align: center;
-      margin: 40px 0 20px;
-      font-size: 14px;
-      color: #555;
-    }
+    html, body { scroll-behavior: smooth; margin: 0; padding: 0; font-family: Arial, sans-serif; background: #f7f7f7; }
+    h1 { text-align: center; margin: 20px 0; }
+    input, textarea, select { width:100%; margin:5px 0; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; }
+    .link-btn { background:red; color:#fff; padding:8px 16px; border:none; border-radius:4px; margin:5px 0; cursor:pointer; font-size:15px; }
+    .link-btn:active { background:#00ff00; }
+    .doc-item { background:#fff; border:1px solid #ddd; border-radius:6px; padding:15px; margin:15px 20px; position:relative; }
+    .preview { max-width:150px; max-height:150px; margin:10px 0; display:block; border:1px solid #ccc; border-radius:4px; }
+    .delete-btn { position:absolute; top:10px; right:10px; background:red; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; }
+    footer { text-align:center; margin:40px 0 20px; font-size:14px; color:#555; }
   </style>
 </head>
 <body>
   <h1>📘 Chia sẻ Tài liệu</h1>
-
   <button id="loginBtn" class="link-btn">Đăng nhập bằng Google</button>
   <div id="userPanel" style="display:none;">
     Xin chào, <span id="userName"></span>!
     <button id="logoutBtn" class="link-btn">Đăng xuất</button>
   </div>
 
-  <div id="searchSection" style="padding: 0 20px;">
+  <div id="searchSection" style="padding:0 20px;">
     <input id="searchInput" placeholder="Tìm kiếm tài liệu">
     <button id="searchBtn" class="link-btn">🔍 Tìm kiếm</button>
   </div>
 
-  <div id="createSection" style="display:none; padding: 0 20px;">
+  <div id="createSection" style="display:none; padding:0 20px;">
     <button id="addBtn" class="link-btn">➕ Thêm tài liệu</button>
     <div id="docsContainer"></div>
   </div>
 
-  <footer><u>©2025 | Khoan VN</u></footer>
+  <footer><u>©2025 | Khoan VN</u></footer>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "API_KEY",
-      authDomain: "chat-hacker-82e55.firebaseapp.com",
-      projectId: "chat-hacker-82e55",
-      storageBucket: "chat-hacker-82e55.appspot.com",
-      messagingSenderId: "918654199628",
-      appId: "1:918654199628:web:8855d7d4c4301da8a191e9",
-      measurementId: "G-6X2W1618S9"
+  const firebaseConfig = {
+    apiKey:"YOUR_API_KEY",
+    authDomain:"chat-hacker-82e55.firebaseapp.com",
+    projectId:"chat-hacker-82e55",
+    storageBucket:"chat-hacker-82e55.appspot.com",
+    messagingSenderId:"918654199628",
+    appId:"1:918654199628:web:8855d7d4c4301da8a191e9",
+    measurementId:"G-6X2W1618S9"
+  };
+  initializeApp(firebaseConfig);
+  const auth = getAuth(), db = getFirestore(), provider = new GoogleAuthProvider();
+  let todayCount = 0;
+
+  document.getElementById('loginBtn').onclick = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch(e) {
+      alert("Lỗi đăng nhập: "+e.message);
+    }
+  };
+  document.getElementById('logoutBtn').onclick = async () => {
+    await signOut(auth);
+    location.reload();
+  };
+
+  onAuthStateChanged(auth, async user => {
+    if (user) {
+      document.getElementById('loginBtn').style.display = 'none';
+      document.getElementById('userPanel').style.display = 'block';
+      document.getElementById('userName').textContent = user.displayName;
+      document.getElementById('createSection').style.display = 'block';
+      await updateTodayCount(user.uid);
+      await loadDocs();
+    }
+  });
+
+  async function updateTodayCount(uid) {
+    const now = new Date(), start = new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const snap = await getDocs(query(collection(db,'docs'), where('authorUid','==',uid), where('timestamp','>=',start)));
+    todayCount = snap.size;
+  }
+
+  document.getElementById('addBtn').onclick = () => {
+    if (todayCount >= 10) alert('Đạt giới hạn 10 tài liệu/ngày.');
+    else createUploadForm();
+  };
+
+  document.getElementById('searchBtn').onclick = () => {
+    const term = document.getElementById('searchInput').value.trim().toLowerCase();
+    if (term) loadDocs(term);
+  };
+
+  function createUploadForm() {
+    const div = document.createElement('div'); div.className='doc-item';
+    const imgLink = document.createElement('input'); imgLink.placeholder='URL ảnh bìa (bắt buộc)';
+    const preview = document.createElement('img'); preview.className='preview';
+    imgLink.oninput = () => preview.src = imgLink.value.trim() || '';
+    const title = document.createElement('input'); title.placeholder='Giới thiệu (bắt buộc, max50)'; title.maxLength=50;
+    const note = document.createElement('textarea'); note.placeholder='Ghi chú (tùy chọn)';
+    const created = document.createElement('input'); created.type='date'; created.value=new Date().toISOString().split('T')[0];
+    const urlInp = document.createElement('input'); urlInp.placeholder='Link tài liệu (bắt buộc)';
+    const btnText = document.createElement('input'); btnText.placeholder='Chữ nút (bắt buộc, max30)'; btnText.maxLength=30;
+    const author = document.createElement('input'); author.placeholder='Tên người đăng (bắt buộc, max30)'; author.maxLength=30;
+    const privacy = document.createElement('select'); privacy.innerHTML='<option value="public">Công khai</option><option value="private">Riêng tư</option>';
+    const btn = document.createElement('button'); btn.textContent='Tạo tài liệu'; btn.className='link-btn';
+
+    btn.onclick = async () => {
+      const errs = [];
+      if (!imgLink.value.trim()) errs.push("Thiếu ảnh bìa.");
+      if (!title.value.trim()) errs.push("Thiếu giới thiệu.");
+      if (!urlInp.value.trim()) errs.push("Thiếu link.");
+      if (!/^https?:\/\/.+/.test(urlInp.value.trim())) errs.push("Link phải http:// hoặc https://");
+      if (!btnText.value.trim()) errs.push("Thiếu chữ nút.");
+      if (!author.value.trim()) errs.push("Thiếu tên người đăng.");
+      if (errs.length) return alert("Lỗi:\n"+errs.join("\n"));
+
+      const u = auth.currentUser;
+      const data = {
+        imgUrl: imgLink.value.trim(), intro: title.value.trim(), customNote: note.value.trim(),
+        linkText: btnText.value.trim(), linkUrl: urlInp.value.trim(), authorName: author.value.trim(),
+        authorUid: u.uid, private: privacy.value==='private', timestamp: serverTimestamp(), createdDate: created.value
+      };
+      await addDoc(collection(db,'docs'), data);
+      todayCount++;
+      await loadDocs();
+      document.getElementById('docsContainer').lastElementChild?.scrollIntoView({ behavior:'smooth' });
     };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app), db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
-    let todayCount = 0;
 
+    div.append(imgLink, preview, title, note, created, urlInp, btnText, author, privacy, btn);
+    document.getElementById('docsContainer').append(div);
+  }
+
+  async function loadDocs(term='') {
+    const q = term
+      ? query(collection(db,'docs'), where('title_lower','>=',term), where('title_lower','<',term+'\uf8ff'), orderBy('title_lower'))
+      : query(collection(db,'docs'), orderBy('timestamp','desc'));
+    const snaps = await getDocs(q);
+    const cont = document.getElementById('docsContainer'); cont.innerHTML=''; const uid = auth.currentUser?.uid;
+    snaps.forEach(s => {
+      const d = s.data();
+      if (!d.private || d.authorUid===uid) {
+        const e = document.createElement('div'); e.className='doc-item';
+        if (d.imgUrl) { const im=document.createElement('img'); im.src=d.imgUrl; im.className='preview'; e.append(im); }
+        if (d.intro) e.append(document.createElement('p')).textContent='📌 '+d.intro;
+        if (d.customNote) e.append(document.createElement('p')).textContent=d.customNote;
+        const b = document.createElement('button'); b.textContent=d.linkText; b.className='link-btn';
+        b.onclick=()=>window.open(d.linkUrl,'_blank'); e.append(b);
+        const m=document.createElement('div'); m.textContent=`Tác giả: ${d.authorName} | Ngày: ${d.createdDate}`; e.append(m);
+        if (uid && d.authorUid===uid) {
+          const del=document.createElement('button'); del.textContent='Xóa'; del.className='delete-btn';
+          del.onclick=()=>{ if(confirm('Xác nhận xóa?')) deleteDoc(doc(db,'docs',s.id)).then(()=>loadDocs(term)); };
+          e.append(del);
+        }
+        cont.append(e);
+      }
+    });
+  }
+</script>
+</body>
+</html>
     document.getElementById('loginBtn').onclick = async () => {
       try { await signInWithPopup(auth, provider); location.reload(); }
       catch (e) { alert("Lỗi đăng nhập: " + e.message); }
