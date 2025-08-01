@@ -2,16 +2,16 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>Chia sẻ tài liệu</title>
+  <title>Chia sẻ Tài liệu</title>
   <style>
     body { font-family: Arial; background: #f7f7f7; margin: 20px; }
     h1 { text-align: center; }
     input, textarea, select { width: 100%; margin: 5px 0; padding: 6px; border-radius: 4px; border: 1px solid #ccc; }
     .doc-item { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 15px; position: relative; }
     .preview { max-width: 150px; max-height: 150px; margin: 10px 0; display: block; }
-    .link-btn { background: red; color: white; padding: 8px 16px; border: none; border-radius: 4px; margin-top: 5px; }
+    .link-btn { background: red; color: #fff; padding: 8px 16px; border: none; border-radius: 4px; margin-top: 5px; }
     .link-btn:active { background: #00ff00; }
-    .delete-btn { position: absolute; top: 10px; right: 10px; background: red; color: white; border: none; padding: 4px 8px; border-radius: 4px; }
+    .delete-btn { position: absolute; top: 10px; right: 10px; background: red; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; }
     footer { text-align: center; margin-top: 30px; color: #555; font-size: 14px; }
   </style>
 </head>
@@ -55,17 +55,10 @@
     let todayCount = 0;
 
     document.getElementById('loginBtn').onclick = async () => {
-      try {
-        await signInWithPopup(auth, provider);
-        location.reload();
-      } catch (e) {
-        alert("Lỗi đăng nhập: " + e.message);
-      }
+      try { await signInWithPopup(auth, provider); location.reload(); }
+      catch (e) { alert("Lỗi đăng nhập: " + e.message); }
     };
-    document.getElementById('logoutBtn').onclick = async () => {
-      await signOut(auth);
-      location.reload();
-    };
+    document.getElementById('logoutBtn').onclick = async () => { await signOut(auth); location.reload(); };
 
     onAuthStateChanged(auth, async user => {
       if (user) {
@@ -95,11 +88,12 @@
       const preview = document.createElement('img'); preview.className = 'preview'; let imgUrl = '';
 
       imgInp.onchange = () => {
-        const f = imgInp.files[0]; if (!f) return;
+        const f = imgInp.files[0];
+        if (!f) return alert("Bạn chưa chọn ảnh.");
         uploadBytes(sRef(storage,'images/'+Date.now()+'_'+f.name), f)
           .then(r => getDownloadURL(r.ref))
           .then(u => { imgUrl = u; preview.src = u; })
-          .catch(e => alert('Upload ảnh lỗi: ' + e.message));
+          .catch(e => alert('Lỗi upload ảnh: ' + e.message));
       };
 
       const title = document.createElement('input'); title.placeholder = 'Giới thiệu (bắt buộc, max 50)'; title.maxLength = 50;
@@ -111,22 +105,22 @@
       const urlInp = document.createElement('input'); urlInp.placeholder = 'Link liên kết (bắt buộc)';
       const btnText = document.createElement('input'); btnText.placeholder = 'Chữ button (bắt buộc, max 30)'; btnText.maxLength = 30;
       const author = document.createElement('input'); author.placeholder = 'Tên người đăng (bắt buộc, max 30)'; author.maxLength = 30;
-      const privacy = document.createElement('select'); privacy.innerHTML = `<option value="public">Công khai</option><option value="private">Riêng tư</option>`;
+      const privacy = document.createElement('select');
+      privacy.innerHTML = `<option value="public">Công khai</option><option value="private">Riêng tư</option>`;
 
       const btn = document.createElement('button'); btn.textContent = 'Tạo tài liệu'; btn.className = 'link-btn';
-
       btn.onclick = async () => {
         const errors = [];
         if (!imgUrl) errors.push("Bạn chưa chọn ảnh.");
         if (!title.value.trim()) errors.push("Bạn chưa nhập giới thiệu.");
         if (!urlInp.value.trim()) errors.push("Bạn chưa nhập liên kết.");
-        if (!/^https?:\/\/.+/.test(urlInp.value.trim())) errors.push("Link không hợp lệ. Phải bắt đầu bằng http:// hoặc https://");
+        if (!/^https?:\/\/.+/.test(urlInp.value.trim())) errors.push("Link phải bắt đầu bằng http:// hoặc https://");
         if (!btnText.value.trim()) errors.push("Bạn chưa nhập chữ nút.");
         if (btnText.value.trim().length > 30) errors.push("Chữ nút tối đa 30 ký tự.");
         if (!author.value.trim()) errors.push("Bạn chưa nhập tên người đăng.");
 
-        if (errors.length > 0) {
-          alert("⚠️ Lỗi:\n" + errors.join("\n"));
+        if (errors.length) {
+          alert("❌ Lỗi:\n" + errors.join("\n"));
           return;
         }
 
@@ -145,7 +139,7 @@
         };
         if (expire.value) data.expireDate = expire.value;
 
-        await addDoc(collection(db,'docs'), data);
+        await addDoc(collection(db, 'docs'), data);
         todayCount++; loadDocs();
       };
 
@@ -154,22 +148,26 @@
     }
 
     async function loadDocs(term='') {
-      let q = term
+      const q = term
         ? query(collection(db,'docs'), where('title_lower','>=',term), where('title_lower','<',term+'\uf8ff'), orderBy('title_lower'))
         : query(collection(db,'docs'), orderBy('timestamp','desc'));
       const snaps = await getDocs(q);
       const cont = document.getElementById('docsContainer'); cont.innerHTML = ''; const uid = auth.currentUser?.uid;
       snaps.forEach(s => {
-        const d = s.data(); if (!d.private || d.authorUid === uid) {
+        const d = s.data();
+        if (!d.private || d.authorUid === uid) {
           const e = document.createElement('div'); e.className = 'doc-item';
           if (d.imgUrl) { const im = document.createElement('img'); im.src = d.imgUrl; im.className='preview'; e.append(im); }
           if (d.intro) e.append(document.createElement('p')).textContent = '📌 ' + d.intro;
           if (d.customNote) e.append(document.createElement('p')).textContent = d.customNote;
-          const b = document.createElement('button'); b.textContent = d.linkText; b.className = 'link-btn'; b.onclick = () => window.open(d.linkUrl,'_blank'); e.append(b);
-          const m = document.createElement('div'); m.textContent = `Tác giả: ${d.authorName} | Ngày đăng: ${d.createdDate}` + (d.expireDate ? ` | Hạn đến: ${d.expireDate}` : ''); e.append(m);
+          const b = document.createElement('button'); b.textContent = d.linkText; b.className = 'link-btn';
+          b.onclick = () => window.open(d.linkUrl, '_blank'); e.append(b);
+          const m = document.createElement('div');
+          m.textContent = `Tác giả: ${d.authorName} | Ngày: ${d.createdDate}` + (d.expireDate ? ` | Hạn: ${d.expireDate}` : '');
+          e.append(m);
           if (uid && d.authorUid === uid) {
             const del = document.createElement('button'); del.textContent='Xóa'; del.className='delete-btn';
-            del.onclick = () => { if (confirm('Xác nhận xóa?')) deleteDoc(doc(db,'docs', s.id)).then(() => loadDocs(term)); };
+            del.onclick = () => { if (confirm('Xác nhận xóa?')) deleteDoc(doc(db,'docs', s.id)).then(()=>loadDocs(term)); };
             e.append(del);
           }
           cont.append(e);
