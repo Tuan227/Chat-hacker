@@ -37,7 +37,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDJtJvPdg9owkQhu99U82r9cE0YaGmcLbo",
@@ -50,9 +49,8 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app), db = getFirestore(app), storage = getStorage(app);
-    const provider = new GoogleAuthProvider();
-    let todayCount = 0;
+    const auth = getAuth(app), db = getFirestore(app);
+    const provider = new GoogleAuthProvider(); let todayCount = 0;
 
     document.getElementById('loginBtn').onclick = async () => {
       try { await signInWithPopup(auth, provider); location.reload(); }
@@ -84,16 +82,13 @@
 
     function createUploadForm() {
       const div = document.createElement('div'); div.className = 'doc-item';
-      const imgInp = document.createElement('input'); imgInp.type = 'file'; imgInp.accept = 'image/*';
-      const preview = document.createElement('img'); preview.className = 'preview'; let imgUrl = '';
 
-      imgInp.onchange = () => {
-        const f = imgInp.files[0];
-        if (!f) return alert("Bạn chưa chọn ảnh.");
-        uploadBytes(sRef(storage,'images/'+Date.now()+'_'+f.name), f)
-          .then(r => getDownloadURL(r.ref))
-          .then(u => { imgUrl = u; preview.src = u; })
-          .catch(e => alert('Lỗi upload ảnh: ' + e.message));
+      const imgLink = document.createElement('input'); imgLink.placeholder = 'URL ảnh bìa (bắt buộc)';
+      const preview = document.createElement('img'); preview.className = 'preview';
+
+      imgLink.oninput = () => {
+        const url = imgLink.value.trim();
+        preview.src = url || '';
       };
 
       const title = document.createElement('input'); title.placeholder = 'Giới thiệu (bắt buộc, max 50)'; title.maxLength = 50;
@@ -111,12 +106,11 @@
       const btn = document.createElement('button'); btn.textContent = 'Tạo tài liệu'; btn.className = 'link-btn';
       btn.onclick = async () => {
         const errors = [];
-        if (!imgUrl) errors.push("Bạn chưa chọn ảnh.");
+        if (!imgLink.value.trim()) errors.push("Bạn chưa nhập URL ảnh bìa.");
         if (!title.value.trim()) errors.push("Bạn chưa nhập giới thiệu.");
         if (!urlInp.value.trim()) errors.push("Bạn chưa nhập liên kết.");
         if (!/^https?:\/\/.+/.test(urlInp.value.trim())) errors.push("Link phải bắt đầu bằng http:// hoặc https://");
         if (!btnText.value.trim()) errors.push("Bạn chưa nhập chữ nút.");
-        if (btnText.value.trim().length > 30) errors.push("Chữ nút tối đa 30 ký tự.");
         if (!author.value.trim()) errors.push("Bạn chưa nhập tên người đăng.");
 
         if (errors.length) {
@@ -126,7 +120,7 @@
 
         const u = auth.currentUser;
         const data = {
-          imgUrl,
+          imgUrl: imgLink.value.trim(),
           intro: title.value.trim(),
           customNote: note.value.trim(),
           linkText: btnText.value.trim(),
@@ -143,7 +137,7 @@
         todayCount++; loadDocs();
       };
 
-      div.append(imgInp, preview, title, note, createdLabel, created, expireLabel, expire, urlInp, btnText, author, privacy, btn);
+      div.append(imgLink, preview, title, note, createdLabel, created, expireLabel, expire, urlInp, btnText, author, privacy, btn);
       document.getElementById('docsContainer').append(div);
     }
 
