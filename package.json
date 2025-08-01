@@ -1,0 +1,15 @@
+{
+  "name": "chat-hacker",
+  "version": "1.0.0",
+  "description": "Website chia sẻ tài liệu Firebase",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["firebase", "html", "document", "share", "upload"],
+  "author": "Khoan VN",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
